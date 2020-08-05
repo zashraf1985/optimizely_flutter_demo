@@ -1,15 +1,7 @@
 // // OptimizelyClient is the entry point to the Optimizely SDK
 // type OptimizelyClient struct {
-// 	ConfigManager      config.ProjectConfigManager
-// 	DecisionService    decision.Service
-// 	EventProcessor     event.Processor
-// 	notificationCenter notification.Center
-// 	execGroup          *utils.ExecGroup
-// 	logger             logging.OptimizelyLogProducer
-// }
+import 'package:optimizely/src/config/config_manager.dart';
 
-// type ProjectConfigManager interface {
-// 	GetConfig() (ProjectConfig, error)
-// 	GetOptimizelyConfig() *OptimizelyConfig
-
-class OptimizelyClient {}
+class OptimizelyClient {
+  ProjectConfigManager configManager;
+}

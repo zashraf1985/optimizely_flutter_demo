@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-void main() {
+import 'package:optimizely/src/factory.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  String data = await rootBundle.loadString('assets/100_entities.json');
+  OptimizelyFactory factory = OptimizelyFactory(data);
+  factory.client();
   runApp(MyApp());
 }
 

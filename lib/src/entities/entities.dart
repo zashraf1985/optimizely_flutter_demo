@@ -1,6 +1,3 @@
-import 'package:optimizely/src/datafile_entities/experiment.dart';
-import 'package:optimizely/src/datafile_entities/variable.dart';
-
 class Attribute {
   String id;
   String key;
@@ -10,6 +7,7 @@ class Attribute {
 class Audience {
   String id;
   String name;
+  dynamic conditions;
 }
 
 class Variation {
@@ -30,6 +28,7 @@ class Experiment {
   String groupID;
   Map<String, String> whitelist;
   bool isFeatureExperiment;
+  dynamic audienceConditions;
 }
 
 class Range {

@@ -4,7 +4,7 @@ import 'package:optimizely/src/entities/entities.dart';
 abstract class ProjectConfig {
   String getAccountID();
   bool getAnonymizeIP();
-  String getAttributeID(String id);
+  String getAttributeID(String key);
   Attribute getAttributeByKey(String key);
   Audience getAudienceByID(String id);
   Map<String, Audience> getAudienceMap();
@@ -14,7 +14,7 @@ abstract class ProjectConfig {
   Feature getFeatureByKey(String key);
   Variable getVariableByKey(String featureKey, String variableKey);
   List<Experiment> getExperimentList();
-  List<Feature> getFeaturesList();
+  List<Feature> getFeatureList();
   Group getGroupByID(String id);
   String getProjectID();
   String getRevision();

@@ -1,21 +1,21 @@
+import 'package:optimizely/src/config/datafile_project_config.dart';
 import 'package:optimizely/src/config/project_config.dart';
-import 'dart:io' show File;
 
 abstract class ProjectConfigManager {
   ProjectConfig getConfig();
 }
 
 class StaticProjectConfigManager extends ProjectConfigManager {
-  File datafile;
+  String datafile;
   ProjectConfig config;
 
-  StaticProjectConfigManager(File datafile) {
+  StaticProjectConfigManager(String datafile) {
     this.datafile = datafile;
+    this.config = DatafileProjectConfig.fromDatafile(datafile);
   }
 
   @override
   ProjectConfig getConfig() {
-    // TODO: implement getConfig
-    throw UnimplementedError();
+    return this.config;
   }
 }

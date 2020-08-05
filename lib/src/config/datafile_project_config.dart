@@ -1,189 +1,203 @@
-// var datafileVersions = map[string]struct{}{
-// 	"4": {},
-// }
+import 'package:optimizely/src/datafile_entities/experiment.dart'
+    as DatafileExperiment show Experiment;
+import 'package:optimizely/src/datafile_entities/event.dart' as DatafileEvent
+    show Event;
+import 'package:optimizely/src/datafile_entities/audience.dart'
+    as DatafileAudience show Audience;
+import 'package:optimizely/src/config/project_config.dart';
+import 'package:optimizely/src/datafile_entities/datafile.dart';
+import 'package:optimizely/src/datafile_entities/event.dart';
+import 'package:optimizely/src/entities/entities.dart';
+import 'dart:convert';
 
-// // DatafileProjectConfig is a project config backed by a datafile
-// type DatafileProjectConfig struct {
-// 	accountID            string
-// 	projectID            string
-// 	revision             string
-// 	experimentKeyToIDMap map[string]string
-// 	audienceMap          map[string]entities.Audience
-// 	attributeMap         map[string]entities.Attribute
-// 	eventMap             map[string]entities.Event
-// 	attributeKeyToIDMap  map[string]string
-// 	experimentMap        map[string]entities.Experiment
-// 	featureMap           map[string]entities.Feature
-// 	groupMap             map[string]entities.Group
-// 	rolloutMap           map[string]entities.Rollout
-// 	anonymizeIP          bool
-// 	botFiltering         bool
-// }
+import 'package:optimizely/src/mappers/mappers.dart';
 
-// // GetProjectID returns projectID
-// func (c DatafileProjectConfig) GetProjectID() string {
-// 	return c.projectID
-// }
+Map<String, String> datafileVersions = {"4": ""};
 
-// // GetRevision returns revision
-// func (c DatafileProjectConfig) GetRevision() string {
-// 	return c.revision
-// }
+class DatafileProjectConfig extends ProjectConfig {
+  final String accountID;
+  final String projectID;
+  final String revision;
+  final Map<String, String> experimentKeyToIDMap;
+  final Map<String, Audience> audienceMap;
+  final Map<String, Attribute> attributeMap;
+  final Map<String, Event> eventMap;
+  final Map<String, String> attributeKeyToIDMap;
+  final Map<String, Experiment> experimentMap;
+  final Map<String, Feature> featureMap;
+  final Map<String, Group> groupMap;
+  final Map<String, Rollout> rolloutMap;
+  final bool anonymizeIP;
+  final bool botFiltering;
 
-// // GetAccountID returns accountID
-// func (c DatafileProjectConfig) GetAccountID() string {
-// 	return c.accountID
-// }
+  factory DatafileProjectConfig.fromDatafile(String jsonDatafile) {
+    Datafile datafile = Datafile.fromJson(jsonDecode(jsonDatafile));
+    if (datafile == null) {
+      throw new Exception('Error parsing datafile');
+    }
 
-// // GetAnonymizeIP returns anonymizeIP
-// func (c DatafileProjectConfig) GetAnonymizeIP() bool {
-// 	return c.anonymizeIP
-// }
+    if (!datafileVersions.containsKey(datafile.version)) {
+      throw new Exception("unsupported datafile version");
+    }
 
-// // GetAttributeID returns attributeID
-// func (c DatafileProjectConfig) GetAttributeID(key string) string {
-// 	return c.attributeKeyToIDMap[key]
-// }
+    List attributeMaps = mapAttributes(datafile.attributes);
+    Map<String, Attribute> attributeMap = attributeMaps[0];
+    Map<String, String> attributeKeyToIDMap = attributeMaps[1];
+    List<DatafileExperiment.Experiment> allExperiments =
+        mergeExperiments(datafile.experiments, datafile.groups);
 
-// // GetBotFiltering returns GetBotFiltering
-// func (c DatafileProjectConfig) GetBotFiltering() bool {
-// 	return c.botFiltering
-// }
+    List groupMaps = mapGroups(datafile.groups);
+    Map<String, Group> groupMap = groupMaps[0];
+    Map<String, String> experimentGroupMap = groupMaps[1];
 
-// // GetEventByKey returns the event with the given key
-// func (c DatafileProjectConfig) GetEventByKey(eventKey string) (entities.Event, error) {
-// 	if event, ok := c.eventMap[eventKey]; ok {
-// 		return event, nil
-// 	}
+    List experimentMaps = mapExperiments(allExperiments, experimentGroupMap);
+    Map<String, Experiment> experimentMap = experimentMaps[0];
+    Map<String, String> experimentKeyMap = experimentMaps[1];
 
-// 	return entities.Event{}, fmt.Errorf(`event with key "%s" not found`, eventKey)
-// }
+    Map<String, Rollout> rolloutMap = mapRollouts(datafile.rollouts);
+    Map<String, DatafileEvent.Event> eventMap = mapEvents(datafile.events);
 
-// // GetFeatureByKey returns the feature with the given key
-// func (c DatafileProjectConfig) GetFeatureByKey(featureKey string) (entities.Feature, error) {
-// 	if feature, ok := c.featureMap[featureKey]; ok {
-// 		return feature, nil
-// 	}
+    List<DatafileAudience.Audience> mergedAudiences = [];
+    if (datafile.typedAudiences != null) {
+      mergedAudiences.addAll(datafile.typedAudiences);
+    }
+    if (datafile.audiences != null) {
+      mergedAudiences.addAll(datafile.audiences);
+    }
 
-// 	return entities.Feature{}, fmt.Errorf(`feature with key "%s" not found`, featureKey)
-// }
+    Map<String, Feature> featureMap =
+        mapFeatures(datafile.featureFlags, rolloutMap, experimentMap);
 
-// // GetVariableByKey returns the featureVariable with the given key
-// func (c DatafileProjectConfig) GetVariableByKey(featureKey, variableKey string) (entities.Variable, error) {
+    return DatafileProjectConfig(
+        datafile.accountId,
+        datafile.projectId,
+        datafile.revision,
+        experimentKeyMap,
+        mapAudiences(mergedAudiences),
+        attributeMap,
+        eventMap,
+        attributeKeyToIDMap,
+        experimentMap,
+        featureMap,
+        groupMap,
+        rolloutMap,
+        datafile.anonymizeIP,
+        datafile.botFiltering);
+  }
 
-// 	var variable entities.Variable
-// 	var err = fmt.Errorf(`variable with key "%s" not found`, featureKey)
-// 	if feature, ok := c.featureMap[featureKey]; ok {
+  DatafileProjectConfig(
+      this.accountID,
+      this.projectID,
+      this.revision,
+      this.experimentKeyToIDMap,
+      this.audienceMap,
+      this.attributeMap,
+      this.eventMap,
+      this.attributeKeyToIDMap,
+      this.experimentMap,
+      this.featureMap,
+      this.groupMap,
+      this.rolloutMap,
+      this.anonymizeIP,
+      this.botFiltering);
 
-// 		if v, ok := feature.VariableMap[variableKey]; ok {
-// 			variable = v
-// 			err = nil
-// 		}
-// 	}
-// 	return variable, err
-// }
+  @override
+  String getAccountID() {
+    return accountID;
+  }
 
-// // GetAttributeByKey returns the attribute with the given key
-// func (c DatafileProjectConfig) GetAttributeByKey(key string) (entities.Attribute, error) {
-// 	if attributeID, ok := c.attributeKeyToIDMap[key]; ok {
-// 		if attribute, ok := c.attributeMap[attributeID]; ok {
-// 			return attribute, nil
-// 		}
-// 	}
+  @override
+  bool getAnonymizeIP() {
+    return anonymizeIP;
+  }
 
-// 	return entities.Attribute{}, fmt.Errorf(`attribute with key "%s" not found`, key)
-// }
+  @override
+  Attribute getAttributeByKey(String key) {
+    String attributeID = attributeKeyToIDMap[key];
+    if (attributeID != "" && attributeMap.containsKey(attributeID)) {
+      return attributeMap[attributeID];
+    }
+    return null;
+  }
 
-// // GetFeatureList returns an array of all the features
-// func (c DatafileProjectConfig) GetFeatureList() (featureList []entities.Feature) {
-// 	for _, feature := range c.featureMap {
-// 		featureList = append(featureList, feature)
-// 	}
-// 	return featureList
-// }
+  @override
+  String getAttributeID(String key) {
+    return attributeKeyToIDMap[key];
+  }
 
-// // GetExperimentList returns an array of all the experiments
-// func (c DatafileProjectConfig) GetExperimentList() (experimentList []entities.Experiment) {
-// 	for _, experiment := range c.experimentMap {
-// 		experimentList = append(experimentList, experiment)
-// 	}
-// 	return experimentList
-// }
+  @override
+  Audience getAudienceByID(String id) {
+    return audienceMap[id];
+  }
 
-// // GetAudienceByID returns the audience with the given ID
-// func (c DatafileProjectConfig) GetAudienceByID(audienceID string) (entities.Audience, error) {
-// 	if audience, ok := c.audienceMap[audienceID]; ok {
-// 		return audience, nil
-// 	}
+  @override
+  Map<String, Audience> getAudienceMap() {
+    return audienceMap;
+  }
 
-// 	return entities.Audience{}, fmt.Errorf(`audience with ID "%s" not found`, audienceID)
-// }
+  @override
+  bool getBotFiltering() {
+    return botFiltering;
+  }
 
-// // GetAudienceMap returns the audience map
-// func (c DatafileProjectConfig) GetAudienceMap() map[string]entities.Audience {
-// 	return c.audienceMap
-// }
+  @override
+  Event getEventByKey(String key) {
+    return eventMap[key];
+  }
 
-// // GetExperimentByKey returns the experiment with the given key
-// func (c DatafileProjectConfig) GetExperimentByKey(experimentKey string) (entities.Experiment, error) {
-// 	if experimentID, ok := c.experimentKeyToIDMap[experimentKey]; ok {
-// 		if experiment, ok := c.experimentMap[experimentID]; ok {
-// 			return experiment, nil
-// 		}
-// 	}
+  @override
+  Experiment getExperimentByKey(String key) {
+    String experimentID = experimentKeyToIDMap[key];
+    if (experimentID != "" && experimentMap.containsKey(experimentID)) {
+      return experimentMap[experimentID];
+    }
+    return null;
+  }
 
-// 	return entities.Experiment{}, fmt.Errorf(`experiment with key "%s" not found`, experimentKey)
-// }
+  @override
+  List<Experiment> getExperimentList() {
+    List<Experiment> experimentList = [];
+    experimentMap.forEach((key, value) {
+      experimentList.add(value);
+    });
+    return experimentList;
+  }
 
-// // GetGroupByID returns the group with the given ID
-// func (c DatafileProjectConfig) GetGroupByID(groupID string) (entities.Group, error) {
-// 	if group, ok := c.groupMap[groupID]; ok {
-// 		return group, nil
-// 	}
+  @override
+  Feature getFeatureByKey(String key) {
+    return featureMap[key];
+  }
 
-// 	return entities.Group{}, fmt.Errorf(`group with ID "%s" not found`, groupID)
-// }
+  @override
+  List<Feature> getFeatureList() {
+    List<Feature> featureList = [];
+    featureMap.forEach((key, value) {
+      featureList.add(value);
+    });
+    return featureList;
+  }
 
-// // NewDatafileProjectConfig initializes a new datafile from a json byte array using the default JSON datafile parser
-// func NewDatafileProjectConfig(jsonDatafile []byte, logger logging.OptimizelyLogProducer) (*DatafileProjectConfig, error) {
-// 	datafile, err := Parse(jsonDatafile)
-// 	if err != nil {
-// 		logger.Error("Error parsing datafile", err)
-// 		return nil, err
-// 	}
+  @override
+  Group getGroupByID(String id) {
+    return groupMap[id];
+  }
 
-// 	if _, ok := datafileVersions[datafile.Version]; !ok {
-// 		err = errors.New("unsupported datafile version")
-// 		logger.Error(fmt.Sprintf("Version %s of datafile not supported", datafile.Version), err)
-// 		return nil, err
-// 	}
+  @override
+  String getProjectID() {
+    return this.projectID;
+  }
 
-// 	attributeMap, attributeKeyToIDMap := mappers.MapAttributes(datafile.Attributes)
-// 	allExperiments := mappers.MergeExperiments(datafile.Experiments, datafile.Groups)
-// 	groupMap, experimentGroupMap := mappers.MapGroups(datafile.Groups)
-// 	experimentMap, experimentKeyMap := mappers.MapExperiments(allExperiments, experimentGroupMap)
+  @override
+  String getRevision() {
+    return this.revision;
+  }
 
-// 	rolloutMap := mappers.MapRollouts(datafile.Rollouts)
-// 	eventMap := mappers.MapEvents(datafile.Events)
-// 	mergedAudiences := append(datafile.TypedAudiences, datafile.Audiences...)
-// 	featureMap := mappers.MapFeatures(datafile.FeatureFlags, rolloutMap, experimentMap)
-// 	config := &DatafileProjectConfig{
-// 		accountID:            datafile.AccountID,
-// 		anonymizeIP:          datafile.AnonymizeIP,
-// 		attributeKeyToIDMap:  attributeKeyToIDMap,
-// 		audienceMap:          mappers.MapAudiences(mergedAudiences),
-// 		attributeMap:         attributeMap,
-// 		botFiltering:         datafile.BotFiltering,
-// 		experimentKeyToIDMap: experimentKeyMap,
-// 		experimentMap:        experimentMap,
-// 		groupMap:             groupMap,
-// 		eventMap:             eventMap,
-// 		featureMap:           featureMap,
-// 		projectID:            datafile.ProjectID,
-// 		revision:             datafile.Revision,
-// 		rolloutMap:           rolloutMap,
-// 	}
-
-// 	logger.Info("Datafile is valid.")
-// 	return config, nil
-// }
+  @override
+  Variable getVariableByKey(String featureKey, String variableKey) {
+    if (featureMap.containsKey(featureKey)) {
+      Feature feature = featureMap[featureKey];
+      return feature.variableMap[variableKey];
+    }
+    return null;
+  }
+}
