@@ -1,6 +1,6 @@
 # optimizely
 
-A new Flutter project.
+A new Flutter project to set up an SDK.
 
 ## Getting Started
 
